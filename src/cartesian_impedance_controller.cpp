@@ -20,6 +20,7 @@ namespace serl_franka_controllers {
 
 bool CartesianImpedanceController::init(hardware_interface::RobotHW* robot_hw,
                                                ros::NodeHandle& node_handle) {
+  filter_params_ = 0.005;
   std::vector<double> cartesian_stiffness_vector;
   std::vector<double> cartesian_damping_vector;
   publisher_franka_jacobian_.init(node_handle, "franka_jacobian", 1);
@@ -245,6 +246,7 @@ Eigen::Matrix<double, 7, 1> CartesianImpedanceController::saturateTorqueRate(
 void CartesianImpedanceController::complianceParamCallback(
     serl_franka_controllers::compliance_paramConfig& config,
     uint32_t /*level*/) {
+  filter_params_ = config.filter_params;
   cartesian_stiffness_target_.setIdentity();
   cartesian_stiffness_target_.topLeftCorner(3, 3)
       << config.translational_stiffness * Eigen::Matrix3d::Identity();
