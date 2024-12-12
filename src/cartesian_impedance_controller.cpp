@@ -20,7 +20,6 @@ namespace serl_franka_controllers {
 
 bool CartesianImpedanceController::init(hardware_interface::RobotHW* robot_hw,
                                                ros::NodeHandle& node_handle) {
-  filter_params_ = 0.005;
   std::vector<double> cartesian_stiffness_vector;
   std::vector<double> cartesian_damping_vector;
   publisher_franka_jacobian_.init(node_handle, "franka_jacobian", 1);
@@ -90,6 +89,11 @@ bool CartesianImpedanceController::init(hardware_interface::RobotHW* robot_hw,
     }
   }
 
+  filter_d_order_ = 1;
+  filter_params_ = 0.005;
+  std::cout << "init filter_d_order_: " << filter_d_order_ << "\n";
+  std::cout << "init filter_params_: " << filter_params_ << "\n";
+
   dynamic_reconfigure_compliance_param_node_ =
       ros::NodeHandle(node_handle.getNamespace() + "dynamic_reconfigure_compliance_param_node");
 
@@ -102,6 +106,10 @@ bool CartesianImpedanceController::init(hardware_interface::RobotHW* robot_hw,
 
   position_d_.setZero();
   orientation_d_.coeffs() << 0.0, 0.0, 0.0, 1.0;
+  for (int i = 0; i < 10; i++) {
+    position_d_ho_.push_back(position_d_);
+    orientation_d_ho_.push_back(orientation_d_);
+  }
   position_d_target_.setZero();
   orientation_d_target_.coeffs() << 0.0, 0.0, 0.0, 1.0;
 
@@ -125,6 +133,10 @@ void CartesianImpedanceController::starting(const ros::Time& /*time*/) {
   // set equilibrium point to current state
   position_d_ = initial_transform.translation();
   orientation_d_ = Eigen::Quaterniond(initial_transform.linear());
+  for (int i = 0; i < 10; i++) {
+    position_d_ho_[i] = position_d_;
+    orientation_d_ho_[i] = orientation_d_;
+  }
   position_d_target_ = initial_transform.translation();
   orientation_d_target_ = Eigen::Quaterniond(initial_transform.linear());
 
@@ -216,8 +228,16 @@ void CartesianImpedanceController::update(const ros::Time& time,
       filter_params_ * nullspace_stiffness_target_ + (1.0 - filter_params_) * nullspace_stiffness_;
   joint1_nullspace_stiffness_ =
       filter_params_ * joint1_nullspace_stiffness_target_ + (1.0 - filter_params_) * joint1_nullspace_stiffness_;
-  position_d_ = filter_params_ * position_d_target_ + (1.0 - filter_params_) * position_d_;
-  orientation_d_ = orientation_d_.slerp(filter_params_, orientation_d_target_);
+  // position_d_ = filter_params_ * position_d_target_ + (1.0 - filter_params_) * position_d_;
+  // orientation_d_ = orientation_d_.slerp(filter_params_, orientation_d_target_);
+  position_d_ho_[0] = filter_params_ * position_d_target_ + (1.0 - filter_params_) * position_d_ho_[0];
+  orientation_d_ho_[0] = orientation_d_ho_[0].slerp(filter_params_, orientation_d_target_);
+  for (int i = 1; i < filter_d_order_; i++) {
+    position_d_ho_[i] = filter_params_ * position_d_ho_[i-1] + (1.0 - filter_params_) * position_d_ho_[i];
+    orientation_d_ho_[i] = orientation_d_ho_[i].slerp(filter_params_, orientation_d_ho_[i-1]);
+  }
+  position_d_ = position_d_ho_[filter_d_order_-1];
+  orientation_d_ = orientation_d_ho_[filter_d_order_-1];
   Ki_ = filter_params_ * Ki_target_ + (1.0 - filter_params_) * Ki_;
 }
 
@@ -246,7 +266,10 @@ Eigen::Matrix<double, 7, 1> CartesianImpedanceController::saturateTorqueRate(
 void CartesianImpedanceController::complianceParamCallback(
     serl_franka_controllers::compliance_paramConfig& config,
     uint32_t /*level*/) {
+  filter_d_order_ = config.filter_d_order;
   filter_params_ = config.filter_params;
+  std::cout << "complianceParamCallback filter_d_order_: " << filter_d_order_ << "\n";
+  std::cout << "complianceParamCallback filter_params_: " << filter_params_ << "\n";
   cartesian_stiffness_target_.setIdentity();
   cartesian_stiffness_target_.topLeftCorner(3, 3)
       << config.translational_stiffness * Eigen::Matrix3d::Identity();

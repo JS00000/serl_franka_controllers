@@ -44,6 +44,7 @@ class CartesianImpedanceController : public controller_interface::MultiInterface
   std::vector<hardware_interface::JointHandle> joint_handles_;
   std::array<double, 42> jacobian_array;
 
+  int filter_d_order_{1};
   double filter_params_{0.005};
   double nullspace_stiffness_{20.0};
   double nullspace_stiffness_target_{20.0};
@@ -69,6 +70,9 @@ class CartesianImpedanceController : public controller_interface::MultiInterface
   Eigen::Quaterniond orientation_d_;
   Eigen::Vector3d position_d_target_;
   Eigen::Quaterniond orientation_d_target_;
+  std::vector<Eigen::Vector3d> position_d_ho_;
+  std::vector<Eigen::Quaterniond> orientation_d_ho_;
+
 
   // Dynamic reconfigure
   std::unique_ptr<dynamic_reconfigure::Server<serl_franka_controllers::compliance_paramConfig>>
