@@ -268,8 +268,6 @@ void CartesianImpedanceController::complianceParamCallback(
     uint32_t /*level*/) {
   filter_d_order_ = config.filter_d_order;
   filter_params_ = config.filter_params;
-  std::cout << "complianceParamCallback filter_d_order_: " << filter_d_order_ << "\n";
-  std::cout << "complianceParamCallback filter_params_: " << filter_params_ << "\n";
   cartesian_stiffness_target_.setIdentity();
   cartesian_stiffness_target_.topLeftCorner(3, 3)
       << config.translational_stiffness * Eigen::Matrix3d::Identity();
