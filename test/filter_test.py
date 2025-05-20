@@ -13,7 +13,8 @@ if __name__ == "__main__":
     client = Client("/cartesian_impedance_controllerdynamic_reconfigure_compliance_param_node")
 
     # Setting the impedance_controller params through ros dynamic reconfigure
-    client.update_configuration({"filter_params": 0.0005})
+    client.update_configuration({"filter_d_order": 5})
+    client.update_configuration({"filter_params": 0.005})
     client.update_configuration({"translational_stiffness": 2000.0})
     client.update_configuration({"translational_damping": 200.0})
     client.update_configuration({"rotational_stiffness": 150.0})
